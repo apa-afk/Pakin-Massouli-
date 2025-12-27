@@ -36,4 +36,8 @@ def get_baac_tables(resources_df: pd.DataFrame, selected_table: list) -> pd.Data
     acc["nb_vehicules"] = veh.groupby("Num_Acc").size().reindex(acc["Num_Acc"]).fillna(0).astype(int).values
     acc["nb_usagers"]   = usa.groupby("Num_Acc").size().reindex(acc["Num_Acc"]).fillna(0).astype(int).values
 
+    # hour instead of hourmn
+    acc['hour'] = acc['hrmn'].str.split(':').str[0].astype(int)
+
+
     return acc
