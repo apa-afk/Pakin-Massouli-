@@ -70,19 +70,21 @@ def run_regression(df):
 
 
 
-def plot_pca_2D_3D(df, variables = ["age_conducteur","hour","vma","nb_vehicules","lum","atm","surf"]):
+def plot_pca_2D_3D(df, variables = ["age_conducteur","hour","vma","nb_vehicules","lum","atm","surf"], csp = True):
     
     #variables of interest
     pca_df = df[variables]
     
-    #
-    pca_df = pd.concat(
-        [
-            pca_df,
-            pd.get_dummies(df["csp_conducteur"], prefix="csp")
-        ],
-        axis=1
-    )
+    if csp :
+        pca_df = pd.concat(
+            [
+                pca_df,
+                pd.get_dummies(df["csp_conducteur"], prefix="csp")
+            ],
+            axis=1
+        )
+
+        #taking into account or not the randomized csp
     
     
     #standardazing the data
@@ -150,6 +152,8 @@ def plot_pca_2D_3D(df, variables = ["age_conducteur","hour","vma","nb_vehicules"
     ax.set_zlabel(f"PC3 ({pca.explained_variance_ratio_[2]*100:.1f}%)")
     
     plt.show()
+
+    return pca, pca_df
 
 
 

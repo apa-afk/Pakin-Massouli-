@@ -102,6 +102,5 @@ def add_data(df) :
         size=N,
         p=csp_probabilities
     )
-    
 
     return df
