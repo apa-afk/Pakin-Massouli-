@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-
+import numpy as np
 
 
 def get_raw_data_BAAC(api_url: str) -> pd.DataFrame:
@@ -37,7 +37,99 @@ def get_baac_tables(resources_df: pd.DataFrame, selected_table: list) -> pd.Data
     acc["nb_usagers"]   = usa.groupby("Num_Acc").size().reindex(acc["Num_Acc"]).fillna(0).astype(int).values
 
     # hour instead of hourmn
-    acc['hour'] = acc['hrmn'].str.split(':').str[0].astype(int)
+    acc['hour'] = acc['hrmn'].astype(str).str.zfill(4).str[:2].astype(int)
 
 
     return acc
+
+
+
+
+
+
+def add_data(df) : 
+
+
+    np.random.seed(42)  # reproducibility
+
+    N = len(df)
+
+    #AGE
+    age_groups = [
+        (18, 29, 0.35),
+        (30, 44, 0.25),
+        (45, 59, 0.20),
+        (60, 74, 0.15),
+        (75, 85, 0.05)
+    ]
+
+    ages = []
+    for low, high, p in age_groups:
+        count = int(p * N)
+        ages.extend(np.random.randint(low, high + 1, count))
+
+    ages = np.random.choice(ages, N, replace=True)
+    df["age_conducteur"] = ages
+
+    
+    #CSP
+    csp_categories = [
+        "Cadres / professions supérieures",
+        "Professions intermédiaires",
+        "Employés",
+        "Ouvriers",
+        "Agriculteurs",
+        "Indépendants / artisans",
+        "Chômeurs",
+        "Retraités"
+    ]
+
+    raw_probabilities = [
+        0.075,  # cadres (lowest risk)
+        0.11,
+        0.13,
+        0.15,
+        0.154,
+        0.12,
+        0.134,
+        0.167   # retraités
+    ]
+
+    csp_probabilities = raw_probabilities / np.array(raw_probabilities).sum()
+
+    df["csp_conducteur"] = np.random.choice(
+        csp_categories,
+        size=N,
+        p=csp_probabilities
+    )
+
+    
+    #FRENCH REGION
+    regions = [
+        "Île-de-France",
+        "Nord",
+        "Ouest",
+        "Est",
+        "Sud-Ouest",
+        "Sud-Est",
+        "Centre-Massif"
+    ]
+
+    # Approximate population + traffic exposure
+    region_probabilities = [
+        0.18,  # IDF
+        0.17,
+        0.15,
+        0.14,
+        0.13,
+        0.15,
+        0.08
+    ]
+
+    df["region"] = np.random.choice(
+        regions,
+        size=N,
+        p=region_probabilities
+    )
+
+    return df

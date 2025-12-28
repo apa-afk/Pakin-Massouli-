@@ -61,3 +61,7 @@ def run_regression(df):
     
     model = sm.OLS(y, X).fit()
     print(model.summary())
+
+
+
+
