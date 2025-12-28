@@ -1,6 +1,9 @@
 import requests
 import pandas as pd
 import numpy as np
+import re
+import io
+
 
 
 def get_resources(api_url: str) -> pd.DataFrame:
@@ -11,36 +14,108 @@ def get_resources(api_url: str) -> pd.DataFrame:
     return pd.json_normalize(payload["resources"])
 
 
-def get_baac_tables(resources_df: pd.DataFrame, selected_table: list) -> pd.DataFrame:
+def select_baac_tables(BAAC_resources: pd.DataFrame) -> pd.DataFrame: 
     """
-    From BAAC resources (title/format/url), pick the selected BAAC CSV tables, load them and fuse them
-    to have one accident per line.
+    From BAAC_resources[['description','url']], keep only yearly BAAC tables whose URL ends with:
+      - carcteristiques-YYYY.csv
+      - caract-YYYY.csv
+      - usagers_YYYY.csv
+      - vehicules_YYYY.csv
+      - lieux_YYYY.csv
+      - caracteristiques_YYYY.csv
+
+    Returns a DataFrame with columns: description, url, table, year
     """
-    # 1) load selected csvs
-    sel = resources_df.loc[resources_df["description"].isin(selected_table), ["description", "url"]]
-    dfs = {d: pd.read_csv(u, sep=";", low_memory=False) for d, u in sel.to_records(index=False)}
+    df = BAAC_resources[["description", "url"]].copy()
+    df["url"] = df["url"].astype(str)
 
-    # 2) identify the 4 tables
-    carac = next(v for k, v in dfs.items() if "caractéristiques" in k.lower())
-    lieux = next(v for k, v in dfs.items() if "lieux" in k.lower())
-    veh   = next(v for k, v in dfs.items() if "véhicules impliqués" in k.lower() or "vehicules impliques" in k.lower())
-    usa   = next(v for k, v in dfs.items() if "usagers" in k.lower())
+    pattern = re.compile(
+        r"(?:caract|caracteristiques|carcteristiques|lieux|vehicules|usagers)[-_]\d{4}\.csv$",
+        flags=re.IGNORECASE
+    )
 
-    # 3) merge accident-level tables
-    for df in (carac, lieux, veh, usa):
-        df["Num_Acc"] = df["Num_Acc"].astype(str)
+    out = df[df["url"].str.contains(pattern, na=False)].copy()
 
-    acc = carac.merge(lieux, on="Num_Acc", how="left")
+    # Extract table name + year
+    def parse(url: str):
+        m = re.search(r"(carcteristiques|caract|caracteristiques|usagers|vehicules|lieux)[-_](\d{4})\.csv$", url, re.I)
+        if not m:
+            return pd.Series([None, None])
+        table, year = m.group(1).lower(), int(m.group(2))
+        # normalize table name
+        if table in ("carcteristiques", "caracteristiques", "caract"):
+            table = "caracteristiques"
+        return pd.Series([table, year])
 
-    # 4) add simple enrichments (counts)
-    acc["nb_vehicules"] = veh.groupby("Num_Acc").size().reindex(acc["Num_Acc"]).fillna(0).astype(int).values
-    acc["nb_usagers"]   = usa.groupby("Num_Acc").size().reindex(acc["Num_Acc"]).fillna(0).astype(int).values
+    out[["table", "year"]] = out["url"].apply(parse)
 
     # hour instead of hourmn
-    acc['hour'] = acc['hrmn'].astype(str).str.zfill(4).str[:2].astype(int)
+    if "hrmn" in df.columns:
+        out['hour'] = out['hrmn'].astype(str).str.zfill(4).str[:2].astype(int)
+
+    return out.reset_index(drop=True)
 
 
-    return acc
+
+
+
+
+
+def _read_baac_csv(url: str) -> pd.DataFrame:
+    # encoding fallback
+    try:
+        df = pd.read_csv(url, sep=None, engine="python", dtype=str, encoding="utf-8")
+    except UnicodeDecodeError:
+        df = pd.read_csv(url, sep=None, engine="python", dtype=str, encoding="latin1")
+
+    # packed 1-col repair
+    if df.shape[1] == 1 and df.iloc[:, 0].astype(str).str.contains(",").mean() > 0.3:
+        text = df.columns[0] + "\n" + "\n".join(df.iloc[:, 0].astype(str).tolist())
+        df = pd.read_csv(io.StringIO(text), sep=",", engine="python", dtype=str)
+
+    # normalize column names
+    df.columns = (
+        pd.Index(df.columns)
+        .astype(str)
+        .str.strip()
+        .str.replace("\ufeff", "", regex=False)  # BOM sometimes
+    )
+
+    # force rename common variants -> Num_Acc
+    for c in df.columns:
+        if c.replace(" ", "").lower() in {"num_acc", "numacc", "num_accident", "numaccident"}:
+            df = df.rename(columns={c: "Num_Acc"})
+            break
+
+    return df
+
+
+def build_baac_dataframe(selected_BAAC_table: pd.DataFrame) -> pd.DataFrame:
+    out = []
+
+    for year, g in selected_BAAC_table.groupby("year"):
+        dfs = []
+        for url in g["url"]:
+            d = _read_baac_csv(url)
+
+            # skip files without Num_Acc (instead of crashing)
+            if "Num_Acc" not in d.columns:
+                continue
+
+            d["Num_Acc"] = d["Num_Acc"].astype(str).str.strip()
+            dfs.append(d)
+
+        if not dfs:
+            continue
+
+        year_df = dfs[0]
+        for d in dfs[1:]:
+            year_df = year_df.merge(d, on="Num_Acc", how="outer")
+
+        year_df["year"] = year
+        out.append(year_df)
+
+    return pd.concat(out, ignore_index=True, sort=False) if out else pd.DataFrame()
 
 
 
@@ -104,26 +179,3 @@ def add_data(df) :
     )
 
     return df
-
-
-def get_PA_tables(PA_resources: pd.DataFrame) -> pd.DataFrame:
-    """
-    Load the Parc Automobile dataset from its resources DataFrame.
-    Assumes a single CSV resource.
-    """
-    url = PA_resources.loc[0, "url"]
-
-    # 1) download raw text
-    text = requests.get(url, timeout=30).text.strip()
-
-    # 2) split lines
-    lines = text.splitlines()
-    if len(lines) < 2:
-        raise ValueError("CSV content is invalid (less than 2 lines).")
-
-    # 3) split header and values manually
-    header = [h.strip('"') for h in lines[0].split(",")]
-    rows = [[v.strip('"') for v in line.split(",")] for line in lines[1:]]
-
-    # 4) build DataFrame
-    df = pd.DataFrame(rows, columns=header)

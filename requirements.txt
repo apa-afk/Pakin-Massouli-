@@ -2,4 +2,6 @@ pandas
 requests
 numpy
 seaborn
-statsmodels.api
+statsmodels
+scikit-learn
+matplotlib
