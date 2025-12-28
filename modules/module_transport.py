@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import ast
 
 
 def get_resources(api_url: str) -> pd.DataFrame:
@@ -9,4 +10,14 @@ def get_resources(api_url: str) -> pd.DataFrame:
     payload = requests.get(api_url, timeout=30).json()
     return pd.json_normalize(payload)
 
-# test
+
+
+def extract_resources_urls(resources) -> pd.DataFrame:
+    return pd.DataFrame([
+        {
+            "url": f"https://transport.data.gouv.fr/resources/{d['id']}/download",
+            "title": d.get("title")
+        }
+        for sub in resources          # liste
+        for d in sub                  # dict
+    ])

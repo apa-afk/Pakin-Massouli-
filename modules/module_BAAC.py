@@ -14,6 +14,7 @@ def get_resources(api_url: str) -> pd.DataFrame:
     return pd.json_normalize(payload["resources"])
 
 
+
 def select_baac_tables(BAAC_resources: pd.DataFrame) -> pd.DataFrame: 
     """
     From BAAC_resources[['description','url']], keep only yearly BAAC tables whose URL ends with:
@@ -57,10 +58,6 @@ def select_baac_tables(BAAC_resources: pd.DataFrame) -> pd.DataFrame:
 
 
 
-
-
-
-
 def _read_baac_csv(url: str) -> pd.DataFrame:
     # encoding fallback
     try:
@@ -88,6 +85,7 @@ def _read_baac_csv(url: str) -> pd.DataFrame:
             break
 
     return df
+
 
 
 def build_baac_dataframe(selected_BAAC_table: pd.DataFrame) -> pd.DataFrame:
@@ -119,11 +117,7 @@ def build_baac_dataframe(selected_BAAC_table: pd.DataFrame) -> pd.DataFrame:
 
 
 
-
-
-
 def add_data(df) : 
-
 
     np.random.seed(42)  # reproducibility
 
@@ -146,7 +140,6 @@ def add_data(df) :
     ages = np.random.choice(ages, N, replace=True)
     df["age_conducteur"] = ages
 
-    
     #CSP
     csp_categories = [
         "Cadres / professions supérieures",
