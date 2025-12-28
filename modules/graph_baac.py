@@ -10,6 +10,8 @@ from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
 
 
+#modif
+
 def plot_crashes_per_month(df):
 
     sns.countplot(x='mois', data=df)
