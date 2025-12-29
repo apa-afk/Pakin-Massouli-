@@ -1,6 +1,3 @@
-
-
-
 def excel_fix(df):
     # header is on row 1
     df.columns = df.iloc[1].astype(str)
