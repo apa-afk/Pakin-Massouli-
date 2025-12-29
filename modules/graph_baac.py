@@ -12,6 +12,15 @@ from mpl_toolkits.mplot3d import Axes3D
 
 #modif
 
+def hrmn_to_hour(val):
+    try:
+        return int(str(val)[:2])
+    except (ValueError, TypeError):
+        return pd.NA  # ou np.nan
+
+
+
+
 def plot_crashes_per_month(df):
 
     sns.countplot(x='mois', data=df)

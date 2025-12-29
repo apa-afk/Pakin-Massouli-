@@ -50,10 +50,7 @@ def select_baac_tables(BAAC_resources: pd.DataFrame) -> pd.DataFrame:
 
     out[["table", "year"]] = out["url"].apply(parse)
 
-    # hour instead of hourmn
-    if "hrmn" in df.columns:
-        out['hour'] = out['hrmn'].astype(str).str.zfill(4).str[:2].astype(int)
-
+    
     return out.reset_index(drop=True)
 
 
@@ -122,23 +119,6 @@ def add_data(df) :
     np.random.seed(42)  # reproducibility
 
     N = len(df)
-
-    #AGE
-    age_groups = [
-        (18, 29, 0.35),
-        (30, 44, 0.25),
-        (45, 59, 0.20),
-        (60, 74, 0.15),
-        (75, 85, 0.05)
-    ]
-
-    ages = []
-    for low, high, p in age_groups:
-        count = int(p * N)
-        ages.extend(np.random.randint(low, high + 1, count))
-
-    ages = np.random.choice(ages, N, replace=True)
-    df["age_conducteur"] = ages
 
     #CSP
     csp_categories = [
