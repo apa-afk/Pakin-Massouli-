@@ -103,24 +103,8 @@ def build_baac_dataframe(selected_BAAC_table: pd.DataFrame) -> pd.DataFrame:
         merged = reduce(lambda left, right: left.merge(right, on="Num_Acc", how="outer"), dfs)
         merged["year"] = year
         yearly.append(merged)
-
-<<<<<<< HEAD
-        if not dfs:
-            continue
-
-        year_df = dfs[0]
-        for d in dfs[1:]:
-            year_df = year_df.merge(d, on="Num_Acc", how="outer")
-
-        year_df["year"] = year
-        out.append(year_df)
-
-        print(f"{year} completed")
-
-    return pd.concat(out, ignore_index=True, sort=False) if out else pd.DataFrame()
-=======
+        print(f'{year} completed')
     return pd.concat(yearly, ignore_index=True)
->>>>>>> 42f47242b4dd5acdc91e38f767427a473d0be059
 
 
 
