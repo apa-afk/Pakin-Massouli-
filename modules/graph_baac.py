@@ -78,14 +78,17 @@ def to_int(df):
 
     return df
 
-def plot_crashes_per_month(df):
-
-    sns.countplot(x='mois', data=df)
-    plt.title('Number of Crashes per Month')
-    plt.xlabel('Month')
-    plt.ylabel('Number of Crashes')
-    plt.show()
-
+def plot_crashes_per_month(df, ax=None, title=None):
+    sns.countplot(x='mois', data=df, ax=ax)
+    if ax:
+        ax.set_title(title if title else 'Number of Crashes per Month')
+        ax.set_xlabel('Month')
+        ax.set_ylabel('Number of Crashes')
+    else:
+        plt.title(title if title else 'Number of Crashes per Month')
+        plt.xlabel('Month')
+        plt.ylabel('Number of Crashes')
+        plt.show()
 
 def plot_crashes_by_lum(df):
 
@@ -114,17 +117,6 @@ def plot_vehicles_distribution(df):
     plt.show()
 
 
-def plot_accidents_heatmap(df):
-
-    heat = df.pivot_table(index='hour', columns='weekday', values='Num_Acc', aggfunc='count')
-    weekday_order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
-
-    heat = heat[weekday_order]
-    sns.heatmap(heat, cmap='Reds')
-    plt.title('Accidents by Hour and Weekday')
-    plt.xlabel('Weekday')
-    plt.ylabel('Hour of Day')
-    plt.show()
 
 
 def plot_accidents_heatmap_cote_a_cote(df, ax=None, title=None):
