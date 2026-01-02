@@ -46,7 +46,8 @@ def build_baac_dataframe(selected_BAAC_table: pd.DataFrame) -> pd.DataFrame:
     t = selected_BAAC_table.copy()
 
     def _load(u):
-        df = pd.read_csv(u, sep=";")
+        # read with low_memory=False to avoid mixed-type dtype warnings
+        df = pd.read_csv(u, sep=";", low_memory=False)
         df.columns = df.columns.astype(str).str.strip()
         if "Accident_Id" in df.columns:
             df = df.rename(columns={"Accident_Id": "Num_Acc"})
@@ -59,6 +60,50 @@ def build_baac_dataframe(selected_BAAC_table: pd.DataFrame) -> pd.DataFrame:
         dfs = g["df"].tolist()
         merged = reduce(lambda left, right: left.merge(right, on="Num_Acc", how="outer"), dfs)
         merged["year"] = year
+
+        def coalesce_and_clean(df, base):
+            # find columns that contain base (like 'long', 'long_x', 'long_y', ...)
+            cand = [c for c in df.columns if re.search(rf'\b{base}\b', c)]
+            if not cand:
+                return df
+
+            # Clean candidate columns into numeric series first
+            cleaned = {}
+            for c in cand:
+                s = df[c].astype(str).str.strip().str.replace(',', '.', regex=False)
+                s = s.replace(r'^[^\d\-\.+].*$', np.nan, regex=True)
+                cleaned[c] = pd.to_numeric(s, errors='coerce')
+
+            # Heuristic per-row selector: prefer values in plausible ranges for lat/long,
+            # otherwise choose the candidate with largest absolute value (to avoid tiny scaled vals).
+            def pick_value(row_idx):
+                vals = {c: cleaned[c].iat[row_idx] for c in cand}
+                # remove nans
+                vals = {k: v for k, v in vals.items() if not pd.isna(v)}
+                if not vals:
+                    return np.nan
+                # plausible ranges
+                if base == "lat":
+                    good = {k: v for k, v in vals.items() if 41 <= v <= 51}
+                else:  # long
+                    good = {k: v for k, v in vals.items() if -6 <= v <= 10}
+                if good:
+                    # if several plausible, pick the one with median magnitude (stable choice)
+                    return list(good.values())[0]
+                # no plausible found: pick candidate with largest absolute magnitude
+                return max(vals.values(), key=lambda x: abs(x))
+
+            picked = [pick_value(i) for i in range(len(df))]
+            df[base] = pd.Series(picked, index=df.index, dtype="float64")
+
+            # drop redundant candidate columns
+            to_drop = [c for c in cand if c != base]
+            df = df.drop(columns=to_drop)
+            return df
+
+        merged = coalesce_and_clean(merged, "lat")
+        merged = coalesce_and_clean(merged, "long")
+
         yearly.append(merged)
 
     return pd.concat(yearly, ignore_index=True)
