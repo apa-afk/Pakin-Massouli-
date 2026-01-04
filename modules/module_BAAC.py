@@ -7,7 +7,6 @@ from functools import reduce
 
 
 
-
 def get_resources(api_url: str) -> pd.DataFrame:
     """
     BAAC dataset endpoint -> resources DataFrame (one row per resource).

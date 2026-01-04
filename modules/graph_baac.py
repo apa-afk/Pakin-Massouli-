@@ -9,8 +9,6 @@ from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
 
 
-#modif
-
 
 def plot_multiple(dfs, plotting_function, titles):
 
@@ -39,6 +37,7 @@ def dynamiques_temporelles(list_df):
     sexe_moy = [list_df[i]['sexe'].mean() for i in range(nb_annees)]
     
     return occurences, occurences_graves, grav_moy, sexe_moy
+
 
 
 def normalize_coordinates(df, lat_col='lat', long_col='long'):
@@ -72,7 +71,6 @@ def normalize_coordinates(df, lat_col='lat', long_col='long'):
 
     return df
 
-    
 
 
 def to_int(df):
@@ -96,6 +94,8 @@ def to_int(df):
 
     return df
 
+
+
 def plot_crashes_per_month(df, ax=None, title=None):
     sns.countplot(x='mois', data=df, ax=ax)
     if ax:
@@ -108,6 +108,8 @@ def plot_crashes_per_month(df, ax=None, title=None):
         plt.ylabel('Number of Crashes')
         plt.show()
 
+
+
 def plot_crashes_by_lum(df):
 
     sns.countplot(x='lum', data=df)
@@ -115,6 +117,7 @@ def plot_crashes_by_lum(df):
     plt.xlabel('Light Condition Code')
     plt.ylabel('Count')
     plt.show()
+
 
 
 def plot_crashes_by_surface(df):
@@ -126,6 +129,7 @@ def plot_crashes_by_surface(df):
     plt.show()
 
 
+
 def plot_vehicles_distribution(df):
 
     sns.histplot(df['nb_vehicules'], bins=10, kde=False)
@@ -133,7 +137,6 @@ def plot_vehicles_distribution(df):
     plt.xlabel('Number of Vehicles')
     plt.ylabel('Count')
     plt.show()
-
 
 
 
@@ -155,9 +158,6 @@ def plot_accidents_heatmap_cote_a_cote(df, ax=None, title=None):
 
 
 
-
-
-
 def run_regression(df, variables):
 
     if 'grav' not in variables:
@@ -175,7 +175,6 @@ def run_regression(df, variables):
     print(model.summary())
 
     return model
-
 
 
 
@@ -280,8 +279,6 @@ def plot_pca_2D_3D(
     plt.show()
 
     return pca, pca_df
-
-
 
 
     
@@ -424,6 +421,7 @@ def pca_analysis(pca, pca_df, threshold=0.2):
     return corr_df, cos2_df, significant_vars
 
 
+
 def plot_crashes_heatmap_cote_a_cote(df, ax=None, title = None):
     # Filtrer sur les coordonnées (France métropolitaine)
     df = df[
@@ -443,5 +441,3 @@ def plot_crashes_heatmap_cote_a_cote(df, ax=None, title = None):
     ax.set_title(title)
     ax.set_xlim(-5.5, 9.7)
     ax.set_ylim(41.0, 51.5)
-
-    #ax.set_aspect('equal', adjustable='box')

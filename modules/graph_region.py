@@ -1,6 +1,5 @@
-# =========================
-# Imports (unique list)
-# =========================
+# some functions weren't included in the final version as they were not the best to showcase the analysis
+
 import re
 import numpy as np
 import pandas as pd
@@ -266,44 +265,66 @@ def plot_pca_biplot(
     features,                 # list of columns to use
     title="PCA biplot (regions)",
     label_col="region_id",
-    standardize=True
+    standardize=True,
+    n_components=2
 ):
     """
     PCA biplot (PC1 vs PC2) with loadings arrows.
-    - features: list of numeric columns in region_df
+    Returns:
+      - pca: fitted sklearn PCA
+      - X_used: pandas DataFrame actually used for PCA (after numeric coercion + dropna)
     """
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+
     df = region_df.copy()
 
+    # Keep only the requested features, coerce to numeric, drop rows with NaNs
     X = df[features].apply(pd.to_numeric, errors="coerce")
-    X = X.dropna(axis=0, how="any")
-    df2 = df.loc[X.index].copy()
+    X_used = X.dropna(axis=0, how="any")
 
+    # Align labels with kept rows
+    df2 = df.loc[X_used.index].copy()
+
+    # Standardize if needed
     if standardize:
-        Xs = StandardScaler().fit_transform(X.values)
+        Xs = StandardScaler().fit_transform(X_used.values)
     else:
-        Xs = X.values
+        Xs = X_used.values
 
-    pca = PCA(n_components=2)
+    # Fit PCA
+    pca = PCA(n_components=n_components)
     Z = pca.fit_transform(Xs)
 
+    # ---- Plot (PC1 vs PC2) ----
     fig, ax = plt.subplots(figsize=(9, 7))
     ax.scatter(Z[:, 0], Z[:, 1], alpha=0.9)
 
-    # labels
-    for i, lab in enumerate(df2[label_col].astype(str).values):
-        ax.text(Z[i, 0], Z[i, 1], lab, fontsize=9)
+    # Labels
+    if label_col is not None and label_col in df2.columns:
+        for i, lab in enumerate(df2[label_col].astype(str).values):
+            ax.text(Z[i, 0], Z[i, 1], lab, fontsize=9)
 
-    # loadings (arrows)
-    # scale arrows to visible range
-    loadings = pca.components_.T
+    # Loadings arrows
+    loadings = pca.components_.T  # shape = (n_features, n_components)
     arrow_scale = 2.5 * np.max(np.abs(Z)) if np.max(np.abs(Z)) > 0 else 1.0
 
-    for j, feat in enumerate(features):
-        ax.arrow(0, 0, loadings[j, 0] * arrow_scale, loadings[j, 1] * arrow_scale,
-                 head_width=0.04 * arrow_scale, length_includes_head=True)
-        ax.text(loadings[j, 0] * arrow_scale * 1.08,
-                loadings[j, 1] * arrow_scale * 1.08,
-                feat, fontsize=9)
+    for j, feat in enumerate(X_used.columns):
+        ax.arrow(
+            0, 0,
+            loadings[j, 0] * arrow_scale,
+            loadings[j, 1] * arrow_scale,
+            head_width=0.04 * arrow_scale,
+            length_includes_head=True
+        )
+        ax.text(
+            loadings[j, 0] * arrow_scale * 1.08,
+            loadings[j, 1] * arrow_scale * 1.08,
+            feat, fontsize=9
+        )
 
     ax.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
     ax.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
@@ -312,7 +333,8 @@ def plot_pca_biplot(
     plt.tight_layout()
     plt.show()
 
-    return pca
+    return pca, X_used
+
 
 
 # ======================================================
@@ -391,7 +413,6 @@ def plot_partial_corr_heatmap(
     plt.show()
 
     return corr
-
 
 
 # ==========================================================
@@ -515,3 +536,114 @@ def plot_coef_panel_FE(
     plt.show()
 
     return models, panel
+# test
+
+
+def plot_accidents_par_foyer(region_df):
+    # accidents par foyer (derniere annee disponible) pour H/F
+    foyers_cols = [c for c in region_df.columns if c.startswith("foyers_")]
+    foyers_years = sorted(int(c.split("_")[1]) for c in foyers_cols)
+    foyers_year = max(foyers_years)
+
+    rate_H = pd.to_numeric(region_df[f"sum_acc_2024_H"], errors="coerce") / pd.to_numeric(region_df[f"foyers_{foyers_year}"], errors="coerce")
+    rate_F = pd.to_numeric(region_df[f"sum_acc_2024_F"], errors="coerce") / pd.to_numeric(region_df[f"foyers_{foyers_year}"], errors="coerce")
+
+    plot_df = pd.DataFrame({
+        "region": region_df["region"],
+        "H": rate_H * 1000,
+        "F": rate_F * 1000,
+    })
+
+    plot_df = plot_df.sort_values("H")
+
+    x = np.arange(len(plot_df))
+    width = 0.4
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.barh(x - width/2, plot_df["H"], height=width, label="H")
+    ax.barh(x + width/2, plot_df["F"], height=width, label="F")
+
+    ax.set_yticks(x)
+    ax.set_yticklabels(plot_df["region"])
+    ax.set_xlabel(f"Accidents / 1 000 foyers ({foyers_year})")
+    ax.set_title("Accidents par foyer (H/F)")
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+
+def plot_avg_grav(region_df):
+    # évolution de la gravité moyenne par région (H/F) entre 2020 et 2024
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
+
+    for ax, sex in zip(axes, ["H", "F"]):
+        x = [0, 1]
+        for _, row in region_df.iterrows():
+            y0 = pd.to_numeric(row.get(f"avg_grav_2020_{sex}"), errors="coerce")
+            y1 = pd.to_numeric(row.get(f"avg_grav_2024_{sex}"), errors="coerce")
+            if pd.isna(y0) or pd.isna(y1):
+                continue
+            ax.plot(x, [y0, y1], marker="o", linewidth=1)
+            ax.text(1.02, y1, str(row["region_id"]), fontsize=9, va="center")
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["2020", "2024"])
+        ax.set_title(f"Gravité moyenne ({sex})")
+        ax.grid(True, axis="y", alpha=0.3)
+
+    axes[0].set_ylabel("Gravité moyenne")
+    fig.suptitle("Évolution de la gravité moyenne par région (H/F)")
+    plt.tight_layout()
+    plt.show()
+
+
+
+def plot_richesse_vs_grav(region_df):
+     # richesse vs gravité moyenne 2024 (H/F), couleur = alc_bim
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+
+    for ax, sex in zip(axes, ["H", "F"]):
+        x = pd.to_numeric(region_df["richesse_2023"], errors="coerce")
+        y = pd.to_numeric(region_df[f"avg_grav_2024_{sex}"], errors="coerce")
+        c = pd.to_numeric(region_df[f"alc_bim_{sex}_2021"], errors="coerce")
+
+        sc = ax.scatter(x, y, c=c, cmap="viridis", s=60)
+        for _, row in region_df.iterrows():
+            ax.text(row["richesse_2023"], row[f"avg_grav_2024_{sex}"], str(row["region_id"]), fontsize=9, va="center")
+
+        ax.set_xlabel("Richesse 2023")
+        ax.set_title(f"{sex} (couleur = alc_bim_{sex}_2021)")
+
+    axes[0].set_ylabel("Gravité moyenne 2024")
+    fig.colorbar(sc, ax=axes.ravel().tolist(), label="alc_bim_2021")
+    fig.suptitle("Richesse vs gravité (H/F)")
+    plt.tight_layout()
+    plt.show()
+
+
+
+def plot_croissance_vs_richesse(region_df):
+    # Croissance accidents/foyers 2020-2024 vs richesse (H/F)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+
+    foyers_cols = [c for c in region_df.columns if c.startswith("foyers_")]
+    foyers_years = sorted(int(c.split("_")[1]) for c in foyers_cols)
+
+    for ax, sex in zip(axes, ["H", "F"]):
+        rate_2020 = pd.to_numeric(region_df[f"sum_acc_2020_{sex}"], errors="coerce") / pd.to_numeric(region_df["foyers_2020"], errors="coerce")
+        rate_2024 = pd.to_numeric(region_df[f"sum_acc_2024_{sex}"], errors="coerce") / pd.to_numeric(region_df[f"foyers_{max(foyers_years)}"], errors="coerce")
+        growth = (rate_2024 - rate_2020) / rate_2020
+        x = pd.to_numeric(region_df["richesse_2023"], errors="coerce")
+
+        ax.scatter(x, growth * 100, s=60)
+        for _, row in region_df.iterrows():
+            ax.text(row["richesse_2023"], growth.loc[row.name] * 100, str(row["region_id"]), fontsize=9, va="center")
+
+        ax.axhline(0, color="grey", linewidth=1)
+        ax.set_xlabel("Richesse 2023")
+        ax.set_title(f"{sex}")
+
+    axes[0].set_ylabel("Croissance accidents/foyers (%)")
+    fig.suptitle("Croissance 2020-2024 vs richesse (H/F)")
+    plt.tight_layout()
+    plt.show()

@@ -320,8 +320,6 @@ def reshape_BAAC_region(panel_df, years=range(2020, 2025), sexes=("H", "F")):
     out.columns.name = None
     return out
 
-
-
 REGION_REF = {
         1:  "OUTRE-MER",
         11: "ÎLE-DE-FRANCE",
@@ -420,4 +418,3 @@ def fix_region(
         )
 
     return df
-
