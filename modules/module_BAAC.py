@@ -5,6 +5,10 @@ import re
 import io
 from functools import reduce
 
+# # Fix certificates errors on data load:
+import certifi
+import os
+os.environ["SSL_CERT_FILE"] = certifi.where()
 
 
 def get_resources(api_url: str) -> pd.DataFrame:
@@ -46,7 +50,7 @@ def build_baac_dataframe(selected_BAAC_table: pd.DataFrame) -> pd.DataFrame:
 
     def _load(u):
         # read with low_memory=False to avoid mixed-type dtype warnings
-        df = pd.read_csv(u, sep=";", low_memory=False)
+        df = pd.read_csv(u, sep=";", low_memory=False, storage_options={"verify": certifi.where()})
         df.columns = df.columns.astype(str).str.strip()
         if "Accident_Id" in df.columns:
             df = df.rename(columns={"Accident_Id": "Num_Acc"})
